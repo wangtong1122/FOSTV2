@@ -6,13 +6,13 @@ import numpy as np
 import tensorflow as tf
 
 import locality_aware_nms as nms_locality
-import lanms
+# import lanms
 from bktree import BKTree, levenshtein, list_words
 
-tf.app.flags.DEFINE_string('test_data_path', '/home/qz/data/ICDAR15/ch4_test_images/', '')
+tf.app.flags.DEFINE_string('test_data_path', 'E:\Learn\AI\DL\DataSets\ch4_test_images', '')
 tf.app.flags.DEFINE_string('gpu_list', '0', '')
-tf.app.flags.DEFINE_string('checkpoint_path', 'checkpoints/', '')
-tf.app.flags.DEFINE_string('output_dir', 'outputs/', '')
+tf.app.flags.DEFINE_string('checkpoint_path', 'checkpoints', '')
+tf.app.flags.DEFINE_string('output_dir', 'outputs', '')
 tf.app.flags.DEFINE_bool('no_write_images', True, 'do not write images')
 # tf.app.flags.DEFINE_bool('use_vacab', True, 'strong, normal or weak')
 
@@ -96,16 +96,23 @@ def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_
     text_box_restored = restore_rectangle(xy_text[:, ::-1]*4, geo_map[xy_text[:, 0], xy_text[:, 1], :]) # N*4*2
     print('{} text boxes before nms'.format(text_box_restored.shape[0]))
     boxes = np.zeros((text_box_restored.shape[0], 9), dtype=np.float32)
+    print('detecting1')
     boxes[:, :8] = text_box_restored.reshape((-1, 8))
     boxes[:, 8] = score_map[xy_text[:, 0], xy_text[:, 1]]
     timer['restore'] = time.time() - start
+    print('detecting2')
+
     # nms part
     start = time.time()
-    # boxes = nms_locality.nms_locality(boxes.astype(np.float64), nms_thres)
-    boxes = lanms.merge_quadrangle_n9(boxes.astype('float32'), nms_thres)
-    timer['nms'] = time.time() - start
+    print('detecting3')
 
+    boxes = nms_locality.nms_locality(boxes.astype(np.float64), nms_thres)
+    print('detecting4')
+    # boxes = lanms.merge_quadrangle_n9(boxes.astype('float32'), nms_thres)
+    timer['nms'] = time.time() - start
+    print(boxes)
     if boxes.shape[0] == 0:
+        print('return detecting box 0')
         return None, timer
 
     # here we filter some low score boxes by the average score map, this is different from the orginal paper
@@ -113,6 +120,7 @@ def detect(score_map, geo_map, timer, score_map_thresh=0.8, box_thresh=0.1, nms_
         mask = np.zeros_like(score_map, dtype=np.uint8)
         cv2.fillPoly(mask, box[:8].reshape((-1, 4, 2)).astype(np.int32) // 4, 1)
         boxes[i, 8] = cv2.mean(score_map, mask)[0]
+        print('detecting box '+str(i))
     boxes = boxes[boxes[:, 8] > box_thresh]
 
     return boxes, timer
@@ -205,7 +213,10 @@ def main(argv=None):
         saver = tf.train.Saver(variable_averages.variables_to_restore())
 
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-            ckpt_state = tf.train.get_checkpoint_state(FLAGS.checkpoint_path)
+            ckpt_state = tf.train.get_checkpoint_state('checkpoints')
+            print(ckpt_state)
+            print("sss "+FLAGS.checkpoint_path)
+            print("sdsa "+ ckpt_state.model_checkpoint_path)
             model_path = os.path.join(FLAGS.checkpoint_path, os.path.basename(ckpt_state.model_checkpoint_path))
             print('Restore from {}'.format(model_path))
             saver.restore(sess, model_path)
@@ -220,8 +231,9 @@ def main(argv=None):
                 timer = {'detect': 0, 'restore': 0, 'nms': 0, 'recog': 0}
                 start = time.time()
                 shared_feature_map, score, geometry = sess.run([shared_feature, f_score, f_geometry], feed_dict={input_images: [im_resized]})
-                
+                print('开始detect')
                 boxes, timer = detect(score_map=score, geo_map=geometry, timer=timer)
+                print('完成detect')
                 timer['detect'] = time.time() - start
                 start = time.time() # reset for recognition
                 if boxes is not None and boxes.shape[0] != 0:

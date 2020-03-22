@@ -49,14 +49,22 @@ class GeneratorEnqueuer():
         def data_generator_task():
             while not self._stop_event.is_set():
                 try:
+                    print("首先:"+str(self.queue.qsize()))
+                    # if self.queue.qsize() >= 10:
+                    #     print("睡1s")
+                    #     time.sleep(1)
                     if self._use_multiprocessing or self.queue.qsize() < max_queue_size:
                         generator_output = next(self._generator)
                         self.queue.put(generator_output)
                     else:
-                        time.sleep(self.wait_time)
-                except Exception:
+                        generator_output = next(self._generator)
+                        self.queue.put(generator_output)
+                except Exception as e:
+                    print("异常了a"+str(e))
+                    import traceback
+                    # traceback.print_exc(e)
                     self._stop_event.set()
-                    raise
+                    # raise
 
         try:
             if self._use_multiprocessing:
@@ -79,9 +87,12 @@ class GeneratorEnqueuer():
                     thread = threading.Thread(target=data_generator_task)
                 self._threads.append(thread)
                 thread.start()
-        except:
+        except Exception as e:
+            print("异常了b"+str(e))
+            import traceback
+            # traceback.print_exc(e)
             self.stop()
-            raise
+            # raise
 
     def is_running(self):
         return self._stop_event is not None and not self._stop_event.is_set()

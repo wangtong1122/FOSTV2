@@ -96,8 +96,7 @@
 #    undef _DEBUG
 #  endif
 #endif
-
-#include <Python.h>
+#include <Python3.h>
 #include <frameobject.h>
 #include <pythread.h>
 

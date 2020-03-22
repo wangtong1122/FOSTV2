@@ -19,24 +19,26 @@ tf.app.flags.DEFINE_string('training_gt_dir_ic17', '', 'ic15 training dataset gr
 tf.app.flags.DEFINE_string('training_gt_dir_ic15', '', 'ic17 training dataset ground-truth to use')
 """
 
-tf.app.flags.DEFINE_string('training_data_dir', default='/home/qz/data/ICDAR_13_15_17/images/', help='training images dir')
-tf.app.flags.DEFINE_string('training_gt_data_dir', default='/home/qz/data/ICDAR_13_15_17/annotations/', help='training gt dir')
+tf.app.flags.DEFINE_string('training_data_dir', default='E:\Learn\AI\DL\DataSets\ch4_training_images', help='training images dir')
+tf.app.flags.DEFINE_string('training_gt_data_dir', default='E:\Learn\AI\DL\DataSets\ch4_training_localization_transcription_gt', help='training gt dir')
 
-FLAGS = tf.app.flags.FLAGS 
+FLAGS = tf.app.flags.FLAGS
 
 def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0.9, 0.95, 1.0, 1.1, 1.2]),):
     # data_loader = SynthTextLoader()
-    data_loader = ICDARLoader(edition='17', shuffle=True)
+    data_loader = ICDARLoader(edition='13', shuffle=True)
     # image_list = np.array(data_loader.get_images(FLAGS.training_data_dir_ic13, image_list))
     # image_list = np.array(data_loader.get_images(FLAGS.training_data_dir_ic15, image_list))
     image_list = np.array(data_loader.get_images(FLAGS.training_data_dir))
+    # print("所有数据："+str(image_list.size))
     image_list_pick = []
     for imfn in image_list:
-        if imfn.split(".")[0][-1] == '2':
-            image_list_pick.append(imfn)
+            image_list_pick.append(imfn.split("'\\'")[-1])
     image_list = np.array(image_list_pick)
     print('{} training images in {} '.format(image_list.shape[0], FLAGS.training_data_dir))
     index = np.arange(0, image_list.shape[0])
+    # print("我index=")
+    # print(index)
     while True:
         np.random.shuffle(index)
         batch_images = []
@@ -45,31 +47,35 @@ def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0
         batch_geo_maps = []
         batch_training_masks = []
 
-        batch_text_polyses = [] 
+        batch_text_polyses = []
         batch_text_tagses = []
         batch_boxes_masks = []
 
         batch_text_labels = []
         count = 0
+        # print(index)
         for i in index:
             try:
+                # print('我G-1:')
+                # print(i)
                 im_fn = image_list[i]
                 # print(im_fn)
                 # if im_fn.split(".")[0][-1] == '0' or im_fn.split(".")[0][-1] == '2':
                 #     continue
                 im = cv2.imread(os.path.join(FLAGS.training_data_dir, im_fn))
                 h, w, _ = im.shape
-                file_name = "gt_" + im_fn.replace(os.path.basename(im_fn).split('.')[1], 'txt').split('/')[-1]
+                file_name = "gt_" + (im_fn.split('\\')[-1]).replace('jpg', 'txt')
                 # file_name = im_fn.replace(im_fn.split('.')[1], 'txt') # using for synthtext
                 txt_fn = os.path.join(FLAGS.training_gt_data_dir, file_name)
                 if not os.path.exists(txt_fn):
                     print('text file {} does not exists'.format(txt_fn))
                     continue
                 text_polys, text_tags, text_labels = data_loader.load_annotation(txt_fn) # Change for load text transiption
-                
+                # print(file_name)
                 if text_polys.shape[0] == 0:
+                    print(file_name+" text_polys.shape[0]是0")
                     continue
-                
+
                 text_polys, text_tags, text_labels = check_and_validate_polys(text_polys, text_tags, text_labels, (h, w))
 
                 ############################# Data Augmentation ##############################
@@ -90,6 +96,7 @@ def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0
                 # text_labels = [text_labels[i] for i in selected_poly]
                 """
                 if text_polys.shape[0] == 0 or len(text_labels) == 0:
+                    print(file_name +" text_polys text_labels 是 0")
                     continue
 
                 # pad the image to the training input size or the longer side of image
@@ -108,16 +115,17 @@ def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0
                 text_polys[:, :, 0] *= resize_ratio_3_x
                 text_polys[:, :, 1] *= resize_ratio_3_y
                 new_h, new_w, _ = im.shape
-
+                # print(text_polys)
                 score_map, geo_map, training_mask, rectangles = generate_rbox((new_h, new_w), text_polys, text_tags)
 
                 mask = [not (word == [-1]) for word in text_labels]
                 text_labels = list(compress(text_labels, mask))
                 rectangles = list(compress(rectangles, mask))
-
+                # print('我G1:'+file_name)
                 assert len(text_labels) == len(rectangles), "rotate rectangles' num is not equal to text label"
 
                 if len(text_labels) == 0:
+                    print(file_name + "label 是0")
                     continue
 
                 boxes_mask = np.array([count] * len(rectangles))
@@ -134,49 +142,63 @@ def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0
                 batch_boxes_masks.append(boxes_mask)
                 batch_text_labels.extend(text_labels)
                 batch_text_tagses.append(text_tags)
-
+                # print('我G2:'+file_name)
                 if len(batch_images) == batch_size:
+                    # print('我G3-1')
                     batch_text_polyses = np.concatenate(batch_text_polyses)
                     batch_text_tagses = np.concatenate(batch_text_tagses)
                     batch_transform_matrixes, batch_box_widths = get_project_matrix_and_width(batch_text_polyses, batch_text_tagses)
-                    # TODO limit the batch size of recognition 
+                    # print('我G3-2')
+                    # TODO limit the batch size of recognition
                     batch_text_labels_sparse = sparse_tuple_from(np.array(batch_text_labels))
+                    # print('我G3-3')
 
                     # yield images, image_fns, score_maps, geo_maps, training_masks
                     yield batch_images, batch_image_fns, batch_score_maps, batch_geo_maps, batch_training_masks, batch_transform_matrixes, batch_boxes_masks, batch_box_widths, batch_text_labels_sparse, batch_text_polyses, batch_text_labels
+                    # print('我G3-4')
                     batch_images = []
                     batch_image_fns = []
                     batch_score_maps = []
                     batch_geo_maps = []
                     batch_training_masks = []
-                    batch_text_polyses = [] 
+                    batch_text_polyses = []
                     batch_text_tagses = []
                     batch_boxes_masks = []
                     batch_text_labels = []
                     count = 0
+                    # print('我G3')
+                # print('我G4')
             except Exception as e:
-                import traceback
+                print('异常了c '+str(e))
+                # import traceback
                 print(im_fn)
-                traceback.print_exc()
+                # traceback.print_exc(e)
                 continue
+        break
 
 
 def get_batch(num_workers, **kwargs):
     try:
-        enqueuer = GeneratorEnqueuer(generator(**kwargs), use_multiprocessing=True)
+        enqueuer = GeneratorEnqueuer(generator(**kwargs), use_multiprocessing=False)
+        enqueuer.start(max_queue_size=1, workers=1)
+        # enqueuer = GeneratorEnqueuer(generator(**kwargs), use_multiprocessing=True)
         print('Generator use 10 batches for buffering, this may take a while, you can tune this yourself.')
-        enqueuer.start(max_queue_size=10, workers=num_workers)
+        # enqueuer.start(max_queue_size=10, workers=num_workers)
         generator_output = None
         while True:
-            while enqueuer.is_running():
+            print("开始取数据")
+            while not enqueuer.queue.empty():
                 if not enqueuer.queue.empty():
+                    print("我来取数据了a "+str(enqueuer.queue.qsize()))
                     generator_output = enqueuer.queue.get()
+                    print("我来取数据了b "+str(enqueuer.queue.qsize()))
                     break
                 else:
-                    time.sleep(0.01)
+                    time.sleep(0.1)
             yield generator_output
             generator_output = None
     finally:
+        print('Generator use 10 batches完成了')
         if enqueuer is not None:
             enqueuer.stop()
 

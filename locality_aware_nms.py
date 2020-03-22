@@ -23,13 +23,17 @@ def weighted_merge(g, p):
 
 def standard_nms(S, thres):
     order = np.argsort(S[:, 8])[::-1]
+    print(str(order.size))
     keep = []
+    print('stander mms')
     while order.size > 0:
+        print("order siez :"+str(order.size))
         i = order[0]
         keep.append(i)
         ovr = np.array([intersection(S[i], S[t]) for t in order[1:]])
 
         inds = np.where(ovr <= thres)[0]
+        print('stander mms'+str(inds))
         order = order[inds+1]
 
     return S[keep]
@@ -43,7 +47,9 @@ def nms_locality(polys, thres=0.3):
     '''
     S = []
     p = None
+    print(polys.shape)
     for g in polys:
+        print('mns的g '+str(g))
         if p is not None and intersection(g, p) > thres:
             p = weighted_merge(g, p)
         else:

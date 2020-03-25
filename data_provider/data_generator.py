@@ -7,6 +7,7 @@ import cv2
 from itertools import compress
 from data_provider.data_utils import check_and_validate_polys, crop_area, rotate_image, generate_rbox, get_project_matrix_and_width, sparse_tuple_from, crop_area_fix
 from data_provider.ICDAR_loader import ICDARLoader
+from data_provider.CTW_loader import CTW_loader
 # from data_provider.SynthText_loader import SynthTextLoader
 from data_provider.data_enqueuer import GeneratorEnqueuer
 
@@ -26,9 +27,8 @@ FLAGS = tf.app.flags.FLAGS
 
 def generator(input_size=512, batch_size=12, random_scale=np.array([0.8, 0.85, 0.9, 0.95, 1.0, 1.1, 1.2]),):
     # data_loader = SynthTextLoader()
-    data_loader = ICDARLoader(edition='13', shuffle=True)
-    # image_list = np.array(data_loader.get_images(FLAGS.training_data_dir_ic13, image_list))
-    # image_list = np.array(data_loader.get_images(FLAGS.training_data_dir_ic15, image_list))
+    # data_loader = ICDARLoader(edition='13', shuffle=True)
+    data_loader = CTW_loader(shuffle=True)
     image_list = np.array(data_loader.get_images(FLAGS.training_data_dir))
     # print("所有数据："+str(image_list.size))
     image_list_pick = []

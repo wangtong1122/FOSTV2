@@ -26,27 +26,14 @@ class CTW_loader(DataLoader):
                 self.dict[imageid] = anno
 
     # 根据图片文件名称加载对应的标签文件
-    def load_annotation(self, gt_file):
+    def load_annotation(self, im_id):
         text_polys = []
         text_tags = []
         labels = []
-        # since icdar17 gt file named like gt_img_XXX_2.txt
-        if gt_file.split(".")[0].split("_")[-1] == '2':
-            self.edition = '17'
-        else:
-            self.edition = '13'
-        if not os.path.exists(gt_file):
-            return np.array(text_polys, dtype=np.float32)
-        with open(gt_file, 'r', encoding="utf-8-sig") as f:
-            for line in f.readlines():
+        ano = self.dict[im_id]
+
+        for line in f.readlines():
                 try:
-                    line = line.replace('\xef\xbb\bf', '')
-                    line = line.replace('\xe2\x80\x8d', '')
-                    line = line.strip()
-                    line = line.split(',')
-                    if self.edition == '17':
-                        line.pop(8)  # since icdar17 has script
-                    # Deal with transcription containing ,
                     if len(line) > 9:
                         label = line[8]
                         for i in range(len(line) - 9):

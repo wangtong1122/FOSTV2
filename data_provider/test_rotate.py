@@ -5,9 +5,9 @@ from data_provider.ICDAR_loader import ICDARLoader
 
 def test():
     icdar_loader = ICDARLoader()
-    img = cv2.imread("/home/qz/data/ICDAR_13_15_17/images/img_368_1.jpg")
-    text_polygons, text_tags, labels = icdar_loader.load_annotation(gt_file="/home/qz/data/ICDAR_13_15_17/annotations/gt_img_368_1.txt")
-
+    img = cv2.imread("/Users/sunset/learn/dl/ch4_training_images/img_368.jpg")
+    text_polygons, text_tags, labels = icdar_loader.load_annotation(gt_file="/Users/sunset/learn/dl/ch4_training_localization_transcription_gt/gt_img_368.txt")
+    print(labels)
     img, text_polygons = rotate_image(img, text_polygons, 15)
 
     for poly in text_polygons:
